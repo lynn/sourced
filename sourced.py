@@ -39,37 +39,17 @@ def resource(local_path, create=None, url=None, headers={}, serialize=None, dese
     artifact = deserialize(binary)
     return artifact
 
-def text(local_path, create=None, url=None, headers={}, encoding='utf-8'):
-    return resource(local_path, create=create, url=url, headers=headers,
-            serialize=lambda x: x.encode(encoding),
-            deserialize=lambda x: x.decode(encoding))
-
-def json(local_path, create=None, url=None, headers={}, encoding='utf-8', indent=None, find=None, find_first=None):
-    return resource(local_path, create=create, url=url, headers=headers,
-            modify_fetched=(lambda x: [m.value for m in jsonpath_rw.parse(find).find(x)]) if find else \
-                           (lambda x: next(m.value for m in jsonpath_rw.parse(find_first).find(x))) if find_first else None,
-            serialize=lambda x: json_.dumps(x, indent=indent).encode(encoding),
-            deserialize=lambda x: json_.loads(x.decode(encoding)))
+#####
 
 @contextmanager
 def _csv_reader(f, **kwargs):
     try: yield csv_.reader(f, **kwargs)
     finally: f.close()
 
-def csv(local_path, url=None, headers={}, encoding='utf-8', **kwargs):
-    return resource(local_path, url=url, headers=headers,
-            file_action=lambda f: _csv_reader(f, **kwargs),
-            file_open=lambda s: open(s, mode='r', encoding=encoding))
-
 @contextmanager
 def _csv_DictReader(f, **kwargs):
     try: yield csv_.DictReader(f, **kwargs)
     finally: f.close()
-
-def csv_dict(local_path, url=None, headers={}, encoding='utf-8', **kwargs):
-    return resource(local_path, url=url, headers=headers,
-            file_action=lambda f: _csv_DictReader(f, **kwargs),
-            file_open=lambda s: open(s, mode='r', encoding=encoding))
 
 def _serialize_config(config, encoding='utf-8'):
     out = io.StringIO()
@@ -86,8 +66,33 @@ def _create_default(default):
     config.read_dict(default)
     return config
 
-def ini(local_path, default=None, create=None, url=None, headers={}, encoding='utf-8'):
-    return resource(local_path, create=create or ((lambda: _create_default(default)) if default else None), url=url, headers=headers,
+#####
+
+def text(local_path, create=None, url=None, headers={}, encoding='utf-8', max_age=None):
+    return resource(local_path, create=create, url=url, headers=headers, max_age=max_age,
+            serialize=lambda x: x.encode(encoding),
+            deserialize=lambda x: x.decode(encoding))
+
+def json(local_path, create=None, url=None, headers={}, encoding='utf-8', indent=None, find=None, find_first=None, max_age=None):
+    return resource(local_path, create=create, url=url, headers=headers, max_age=max_age,
+            modify_fetched=(lambda x: [m.value for m in jsonpath_rw.parse(find).find(x)]) if find else \
+                           (lambda x: next(m.value for m in jsonpath_rw.parse(find_first).find(x))) if find_first else None,
+            serialize=lambda x: json_.dumps(x, indent=indent).encode(encoding),
+            deserialize=lambda x: json_.loads(x.decode(encoding)))
+
+def csv(local_path, url=None, headers={}, encoding='utf-8', max_age=None, **kwargs):
+    return resource(local_path, url=url, headers=headers, max_age=max_age,
+            file_action=lambda f: _csv_reader(f, **kwargs),
+            file_open=lambda s: open(s, mode='r', encoding=encoding))
+
+def csv_dict(local_path, url=None, headers={}, encoding='utf-8', max_age=None, **kwargs):
+    return resource(local_path, url=url, headers=headers, max_age=max_age,
+            file_action=lambda f: _csv_DictReader(f, **kwargs),
+            file_open=lambda s: open(s, mode='r', encoding=encoding))
+
+def ini(local_path, default=None, create=None, url=None, headers={}, encoding='utf-8', max_age=None):
+    return resource(local_path, url=url, headers=headers, max_age=max_age,
+            create=create or ((lambda: _create_default(default)) if default else None),
             serialize=lambda c: _serialize_config(c, encoding=encoding),
             deserialize=lambda b: _deserialize_config(b, encoding=encoding))
 

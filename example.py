@@ -7,7 +7,7 @@ photos = sourced.json('photos.json', url='https://jsonplaceholder.typicode.com/p
 print(photos[0]['title'])
 
 # Same, but with UTF-8 text.
-alice = sourced.text('alice.txt', url='http://www.gutenberg.org/files/11/11-0.txt')
+alice = sourced.text('alice.txt', url='http://www.gutenberg.org/files/11/11-0.txt', max_age='5 seconds')
 print(alice.lower().count('rabbit'))
 
 # Same, but with the results of an expensive operation.
