@@ -1,0 +1,5 @@
+alice.txt
+*.csv
+*.ini
+*.json
+__pycache__
