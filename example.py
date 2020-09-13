@@ -1,4 +1,5 @@
 from configparser import ConfigParser
+import os
 import sourced
 
 # Fetch a JSON file from the web, and save it to todos.json, and use it.
@@ -33,3 +34,16 @@ print(conf.getint('section', 'foo'))
 
 titles = sourced.json('titles.json', url='https://jsonplaceholder.typicode.com/photos', find='[*].title')
 print(titles[:3])
+
+# Cursor pagination (WaniKani API):
+wk_token = os.environ.get('WK_TOKEN')
+if wk_token:
+    headers = {'Wanikani-Revision': '20170710', 'Authorization': 'Bearer %s' % wk_token}
+    k = sourced.json('kanji.json', url='https://api.wanikani.com/v2/subjects?types=kanji',
+            headers=headers, find='data[*].data.characters', next_page='pages.next_url')
+    print(len(k))
+
+# Query param / URL pagination (Danbooru API):
+tags = sourced.json('tags.json', url='https://testbooru.donmai.us/tags.json?limit=500&page=%p1', find='[*].name')
+print(len(tags), 'tags.')
+
