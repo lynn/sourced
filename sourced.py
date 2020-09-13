@@ -11,7 +11,8 @@ import stat
 import time
 import urllib.request
 
-def resource(local_path, create=None, url=None, headers={}, serialize=None, deserialize=None, file_action=None, file_open=None, max_age=None, modify_fetched=None, next_page=None):
+def resource(local_path, create=None, url=None, headers={}, serialize=None, deserialize=None,
+        file_action=None, file_open=None, max_age=None, modify_fetched=None, next_page=None):
     if create and url:
         raise ValueError('resource has both create function and url')
     if not (create or url):
@@ -28,24 +29,24 @@ def resource(local_path, create=None, url=None, headers={}, serialize=None, dese
                 with urllib.request.urlopen(request) as r:
                     binary = r.read()
             else:
-                if isinstance(url, str): url = [url]
-                artifact = []
+                urls = [url] if isinstance(url, str) else url
+                artifact = None
                 i = 0
-                for u in url:
+                for u in urls:
                     ru = re.sub(r'%p(\d+)', lambda m: str(i+int(m.group(1))), u)
                     print(ru)
                     request = urllib.request.Request(url=ru, headers=headers)
                     with urllib.request.urlopen(request) as r:
-                        part = r.read()
-                    artipart = deserialize(part)
-                    if artipart:
-                        url.append(u)
+                        binary_part = r.read()
+                    part = deserialize(binary_part)
+                    if part and '%p' in u:
+                        urls.append(u)
                         i += 1
                     if next_page:
-                        np = next_page(artipart)
+                        np = next_page(part)
                         if np: url.append(np)
-                    if modify_fetched: artipart = modify_fetched(artipart)
-                    artifact += artipart
+                    if modify_fetched: part = modify_fetched(part)
+                    artifact = part if artifact is None else (artifact + part)
                 binary = serialize(artifact)
 
         else:
@@ -87,13 +88,16 @@ def _create_default(default):
     config.read_dict(default)
     return config
 
-def jsonpath_find(path):
+def _jsonpath_find(path):
     return lambda x: [m.value for m in jsonpath_rw.parse(path).find(x)]
 
-def jsonpath_pick(path):
+def _jsonpath_pick(path):
     return lambda x: next(m.value for m in jsonpath_rw.parse(path).find(x))
 
 #####
+
+def binary(local_path, create=None, url=None, headers={}, max_age=None):
+    return resource(local_path, create=create, url=url, headers=headers, max_age=max_age)
 
 def text(local_path, create=None, url=None, headers={}, encoding='utf-8', max_age=None):
     return resource(local_path, create=create, url=url, headers=headers, max_age=max_age,
@@ -103,11 +107,17 @@ def text(local_path, create=None, url=None, headers={}, encoding='utf-8', max_ag
 def json(local_path, create=None, url=None, headers={}, encoding='utf-8', max_age=None,
         indent=None, find=None, pick=None, next_page=None):
     return resource(local_path, create=create, url=url, headers=headers, max_age=max_age,
-            modify_fetched=jsonpath_find(find) if find else \
-                           jsonpath_pick(pick) if pick else None,
-            next_page=next_page if callable(next_page) else jsonpath_pick(next_page) if next_page else None,
+            modify_fetched=_jsonpath_find(find) if find else \
+                           _jsonpath_pick(pick) if pick else None,
+            next_page=next_page if callable(next_page) else _jsonpath_pick(next_page) if next_page else None,
             serialize=lambda x: json_.dumps(x, indent=indent).encode(encoding),
             deserialize=lambda x: json_.loads(x.decode(encoding)))
+
+def ini(local_path, default=None, create=None, url=None, headers={}, encoding='utf-8', max_age=None):
+    return resource(local_path, url=url, headers=headers, max_age=max_age,
+            create=create or ((lambda: _create_default(default)) if default else None),
+            serialize=lambda c: _serialize_config(c, encoding=encoding),
+            deserialize=lambda b: _deserialize_config(b, encoding=encoding))
 
 def csv(local_path, url=None, headers={}, encoding='utf-8', max_age=None, **kwargs):
     return resource(local_path, url=url, headers=headers, max_age=max_age,
@@ -118,10 +128,4 @@ def csv_dict(local_path, url=None, headers={}, encoding='utf-8', max_age=None, *
     return resource(local_path, url=url, headers=headers, max_age=max_age,
             file_action=lambda f: _csv_DictReader(f, **kwargs),
             file_open=lambda s: open(s, mode='r', encoding=encoding))
-
-def ini(local_path, default=None, create=None, url=None, headers={}, encoding='utf-8', max_age=None):
-    return resource(local_path, url=url, headers=headers, max_age=max_age,
-            create=create or ((lambda: _create_default(default)) if default else None),
-            serialize=lambda c: _serialize_config(c, encoding=encoding),
-            deserialize=lambda b: _deserialize_config(b, encoding=encoding))
 

@@ -32,8 +32,9 @@ with sourced.csv_dict('funding.csv', url=csv_url) as reader:
 conf = sourced.ini('my_config.ini', default={'section': {'foo': 123}})
 print(conf.getint('section', 'foo'))
 
-titles = sourced.json('titles.json', url='https://jsonplaceholder.typicode.com/photos', find='[*].title')
-print(titles[:3])
+# JSON paths:
+titles = sourced.json('titles.json', url='https://jsonplaceholder.typicode.com/photos', find='[:10].title')
+print(titles)
 
 # Cursor pagination (WaniKani API):
 wk_token = os.environ.get('WK_TOKEN')
