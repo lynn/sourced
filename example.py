@@ -8,7 +8,8 @@ photos = sourced.json('photos.json', url='https://jsonplaceholder.typicode.com/p
 print(photos[0]['title'])
 
 # Same, but with UTF-8 text.
-alice = sourced.text('alice.txt', url='http://www.gutenberg.org/files/11/11-0.txt', max_age='5 seconds')
+alice_url = 'http://www.gutenberg.org/files/11/11-0.txt'
+alice = sourced.text('alice.txt', url=alice_url, max_age='5 seconds')
 print(alice.lower().count('rabbit'))
 
 # Same, but with the results of an expensive operation.
@@ -48,3 +49,8 @@ if wk_token:
 tags = sourced.json('tags.json', url='https://testbooru.donmai.us/tags.json?limit=500&page=%p1', find='[*].name')
 print(len(tags), 'tags.')
 
+# Plain old grep
+rabbits = sourced.text('rabbits.txt', url=alice_url, grep=r'rabbit')
+
+# Flip-flop region selection with .. / =.. / ..= / =..= operator
+chapter1 = sourced.text('chapter1.txt', url=alice_url, grep=r'^CHAPTER I\b=..^CHAPTER II\b')

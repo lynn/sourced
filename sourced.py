@@ -11,8 +11,20 @@ import stat
 import time
 import urllib.request
 
+def flip_flop(re_on, re_off, include_on, include_off, lines):
+    on = False
+    for l in lines:
+        m_on = re_on.search(l)
+        m_off = re_off.search(l)
+        if m_on and include_on: on = True
+        if m_off and not include_off: on = False
+        if on: yield l
+        if m_on and not include_on: on = True
+        if m_off and include_off: on = False
+
 def resource(local_path, create=None, url=None, headers={}, serialize=None, deserialize=None,
-        file_action=None, file_open=None, max_age=None, modify_fetched=None, next_page=None):
+        file_action=None, file_open=None, max_age=None, modify_fetched=None, next_page=None,
+        grep=None):
     if create and url:
         raise ValueError('resource has both create function and url')
     if not (create or url):
@@ -23,32 +35,41 @@ def resource(local_path, create=None, url=None, headers={}, serialize=None, dese
     deserialize = deserialize or (lambda x: x)
     if not os.path.isfile(local_path) or (max_age and time.time() - os.stat(local_path).st_mtime > pytimeparse.parse(max_age)):
         # Create and cache the resource.
-        if url:
-            if isinstance(url, str) and not modify_fetched:
-                request = urllib.request.Request(url=url, headers=headers)
+        if url and isinstance(url, str) and not modify_fetched and not grep:
+            request = urllib.request.Request(url=url, headers=headers)
+            with urllib.request.urlopen(request) as r:
+                binary = r.read()
+        elif url:
+            urls = [url] if isinstance(url, str) else url
+            artifact = None
+            i = 0
+            for u in urls:
+                ru = re.sub(r'%p(\d+)', lambda m: str(i+int(m.group(1))), u)
+                request = urllib.request.Request(url=ru, headers=headers)
                 with urllib.request.urlopen(request) as r:
-                    binary = r.read()
-            else:
-                urls = [url] if isinstance(url, str) else url
-                artifact = None
-                i = 0
-                for u in urls:
-                    ru = re.sub(r'%p(\d+)', lambda m: str(i+int(m.group(1))), u)
-                    print(ru)
-                    request = urllib.request.Request(url=ru, headers=headers)
-                    with urllib.request.urlopen(request) as r:
-                        binary_part = r.read()
-                    part = deserialize(binary_part)
-                    if part and '%p' in u:
-                        urls.append(u)
-                        i += 1
-                    if next_page:
-                        np = next_page(part)
-                        if np: url.append(np)
-                    if modify_fetched: part = modify_fetched(part)
-                    artifact = part if artifact is None else (artifact + part)
-                binary = serialize(artifact)
-
+                    binary_part = r.read()
+                part = deserialize(binary_part)
+                if part and '%p' in u:
+                    urls.append(u)
+                    i += 1
+                if next_page:
+                    np = next_page(part)
+                    if np: url.append(np)
+                if modify_fetched: part = modify_fetched(part)
+                artifact = part if artifact is None else (artifact + part)
+            if grep:
+                m = re.search(r'=?\.\.=?', grep)
+                lines = artifact.split('\n')
+                if m:
+                    g0 = m.group(0)
+                    r0 = re.compile(grep[:m.start()])
+                    r1 = re.compile(grep[m.end():])
+                    new_lines = list(flip_flop(r0, r1, g0.startswith('='), g0.endswith('='), lines))
+                else:
+                    r = re.compile(grep)
+                    new_lines = [l for l in lines if r.search(l)]
+                artifact = '\n'.join(new_lines) + '\n'
+            binary = serialize(artifact)
         else:
             artifact = create()
             binary = serialize(artifact)
@@ -99,8 +120,8 @@ def _jsonpath_pick(path):
 def binary(local_path, create=None, url=None, headers={}, max_age=None):
     return resource(local_path, create=create, url=url, headers=headers, max_age=max_age)
 
-def text(local_path, create=None, url=None, headers={}, encoding='utf-8', max_age=None):
-    return resource(local_path, create=create, url=url, headers=headers, max_age=max_age,
+def text(local_path, create=None, url=None, headers={}, encoding='utf-8', max_age=None, grep=None):
+    return resource(local_path, create=create, url=url, headers=headers, max_age=max_age, grep=grep,
             serialize=lambda x: x.encode(encoding),
             deserialize=lambda x: x.decode(encoding))
 

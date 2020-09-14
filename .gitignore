@@ -1,4 +1,4 @@
-alice.txt
+*.txt
 *.csv
 *.ini
 *.json

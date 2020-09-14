@@ -41,10 +41,10 @@ Use `encoding` to set the encoding for text and JSON. It defaults to `utf-8`.
 
 ```py
 t = sourced.text('merci.txt', url=text_url, headers={'Accept-Language': 'fr'})
-u = sourced.text('sozai.txt', url=sjis_url, encoding='shift_jis')
+s = sourced.text('sozai.txt', url=sjis_url, encoding='shift_jis')
 j = sourced.json('okay.json', url=json_url, headers={'Authorization': token})
 b = sourced.binary('data.bin', url=binary_url)
-assert isinstance(t, str)
+assert isinstance(s, str)
 assert isinstance(j, dict)
 assert isinstance(b, bytes)
 ```
